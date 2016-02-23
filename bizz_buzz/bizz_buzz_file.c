@@ -42,6 +42,11 @@
 #define SIZE_OF_BUF 1024
 
 
+int printf_substring (char* string, size_t idx_of_first_char, size_t length_of_substring);
+int printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
+                                        size_t numb_of_digits, size_t idx_of_first_digit);
+
+
 int main (int argc, char* argv[])
 {
 size_t i = 0;
@@ -49,13 +54,14 @@ int is_prev_char_digit = 0, is_printed = 0;
 size_t idx_of_first_digit = 0, numb_of_digits = 0;
 int sum = 0;
 
-char prev_char = 0, cur_char = 0, saved_char = 0;
+char prev_char = 0, cur_char = 0;
 char* input_str = NULL;
 
-int fd = 0;
+int fd = 0, fd_for_numb_on_edge = 0;
 int numb_of_read_bytes = 0;
-char buffer[SIZE_OF_BUF] = {0};
-
+char buffer[SIZE_OF_BUF] = {0}, buffer_for_numb_on_edge[SIZE_OF_BUF] = {0};
+int is_copied = 0;
+off_t cur_position = 0;
 
 //------------------------------------------------------------------------------
 // Help info + getting input string
@@ -81,6 +87,11 @@ if (argc != 2)
 //------------------------------------------------------------------------------
 if ((fd = open (argv[1], O_RDONLY)) == -1)
         HANDLE_ERROR("file open");
+
+// all code corresponding to '_numb_on_edge' provide solution for the problem,
+//      when a number gets divided by the edge of the buffers
+if ((fd_for_numb_on_edge = open (argv[1], O_RDONLY)) == -1)
+        HANDLE_ERROR("fd_for_numb_on_edge open");
 //------------------------------------------------------------------------------
 
 numb_of_read_bytes = 1;
@@ -115,14 +126,17 @@ while (numb_of_read_bytes > 0)
 
                                 if (is_printed == 0)
                                         {
-                                        // makes warning about '.*' requires int, but 'numb_of_digits' is size_t
+                                        // makes warning about '.*': requires int, but 'numb_of_digits' is size_t
                                         // printf ("%.*s", numb_of_digits, &input_str[idx_of_first_digit]);
-                                        saved_char = input_str[idx_of_first_digit + numb_of_digits];
-                                        input_str[idx_of_first_digit + numb_of_digits] = '\0';
 
-                                        printf ("%s", &input_str[idx_of_first_digit]);
-
-                                        input_str[idx_of_first_digit + numb_of_digits] = saved_char;
+                                        if (is_copied == 1) // the number is lying on edge of buffers
+                                                {
+                                                printf_numb_on_edge (fd_for_numb_on_edge, buffer_for_numb_on_edge,
+                                                                                        numb_of_digits, idx_of_first_digit);
+                                                }
+                                        else
+                                                if ((printf_substring (input_str, idx_of_first_digit, numb_of_digits)) < 0)
+                                                        HANDLE_ERROR("printf_substring");
                                         }
 
                                 numb_of_digits = 0;
@@ -130,6 +144,8 @@ while (numb_of_read_bytes > 0)
                                 is_prev_char_digit = 0;
                                 is_printed = 0;
                                 sum = 0;
+
+                                is_copied = 0;
                                 }
 
                         printf ("%c", cur_char);
@@ -144,13 +160,36 @@ while (numb_of_read_bytes > 0)
                                 is_prev_char_digit = 1;
                                 }
 
-                        sum += cur_char;
+                        sum += (cur_char - '0');
                         while (sum >= 3)
                                 sum -= 3;
                         }
 
                 prev_char = cur_char;
                 }
+                //------------------------------------------------------------------------------
+                // this is after 'for' => current substring(buffer) is ended
+                //------------------------------------------------------------------------------
+                // if this is true => a number started in current buffer and this buffer ended
+                //      before (or simultaneously with) the end of this number
+                //-----
+                // we will copy the current buffer and also we know the 'idx_of_first_digit' and
+                //      'numb_of_digits' => later, if this number (that lies on the edge of buffers)
+                //      is not divisible neither by 3 nor 5 => we will print 'numb_of_digits' chars
+                //      from 'idx_of_first_digit' (that refers to the copied buffer) and dynamically
+                //      reads all necessary chars from 'fd_for_numb_on_edge'
+                if ((is_prev_char_digit == 1) & (is_copied == 0))
+                        {
+                        if (memcpy (buffer_for_numb_on_edge, buffer, numb_of_read_bytes + 1) == NULL)
+                                HANDLE_ERROR("memcpy");
+
+                        if ((cur_position = lseek (fd, 0, SEEK_CUR)) == (off_t)(-1))
+                                HANDLE_ERROR("lseek");
+                        if (lseek (fd_for_numb_on_edge, cur_position, SEEK_SET) == (off_t)(-1))
+                                HANDLE_ERROR("lseek");
+
+                        is_copied = 1;
+                        }
 }
 //------------------------------------------------------------------------------
 
@@ -159,3 +198,56 @@ if (close (fd))
 
 return 0;
 }
+
+
+int printf_substring (char* string, size_t idx_of_first_char, size_t length_of_substring)
+{
+char saved_char = 0;
+int numb_of_chars_printed = 0;
+
+saved_char = string[idx_of_first_char + length_of_substring];
+string[idx_of_first_char + length_of_substring] = '\0';
+
+numb_of_chars_printed = printf ("%s", &string[idx_of_first_char]);
+
+string[idx_of_first_char + length_of_substring] = saved_char;
+
+return numb_of_chars_printed;
+}
+
+
+int printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
+                                        size_t numb_of_digits, size_t idx_of_first_digit)
+{
+int numb_of_read_bytes = 0, numb_of_printed_digits = 0;
+
+if ((numb_of_printed_digits = printf ("%s", &buffer_for_numb_on_edge[idx_of_first_digit])) < 0)
+        HANDLE_ERROR("first printf_on_edge");
+numb_of_digits -= numb_of_printed_digits;
+
+while (numb_of_digits > 0)
+        {
+        if ((numb_of_read_bytes = read (fd_for_numb_on_edge,
+                                buffer_for_numb_on_edge, SIZE_OF_BUF - 1)) == -1)
+                HANDLE_ERROR("read");
+        buffer_for_numb_on_edge[numb_of_read_bytes] = '\0';
+
+        if (numb_of_digits > numb_of_read_bytes)
+                {
+                printf ("%s", buffer_for_numb_on_edge);
+
+                numb_of_digits -= numb_of_read_bytes;
+                continue;
+                }
+        else
+                {
+                if ((numb_of_printed_digits = printf_substring (buffer_for_numb_on_edge, 0, numb_of_digits)) < 0)
+                        HANDLE_ERROR("printf_substring on edge");
+
+                numb_of_digits -= numb_of_printed_digits;
+                }
+        }
+
+return 0;
+}
+
