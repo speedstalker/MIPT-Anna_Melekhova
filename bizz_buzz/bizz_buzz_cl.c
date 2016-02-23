@@ -125,7 +125,7 @@ do
                         is_prev_char_digit = 1;
                         }
 
-                sum += cur_char;
+                sum += (cur_char - '0');
                 while (sum >= 3)
                         sum -= 3;
                 }
