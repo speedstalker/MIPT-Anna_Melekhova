@@ -1,4 +1,4 @@
-MIPT-Anna_Melekhova
+MIPT-Anna_Melekhova_seminars
 ===================
 I am a student of MIPT, DREC department, Parallels/Acronis sub-department.
 
