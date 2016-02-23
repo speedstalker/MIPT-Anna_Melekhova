@@ -5,7 +5,7 @@ This version of 'bizz_buzz' program is especially good because:
         * if error is encountered, the full log of this failure is given
 
         * the program utilizes 'size_t' for indexing the strings and numbers, so you
-                should try really hard to overflow it;
+                should try really hard to overflow it
 
         * (applies to 'file' version only) reading from file buffered, the buffer has
                 adjustable size
@@ -13,14 +13,10 @@ This version of 'bizz_buzz' program is especially good because:
         * (applies to 'file' version only) the minimum access mode policy
                 was used (O_RDONLY)
 
-        * if there was any possibility of using the library function, it was used,
-                so, no wheel reinventing was done
-
         * the program uses overflow-protected algorithms to check divisibility of the
                 numbers
 
         * no warning generated using '-Wall', warnings only about 'C++ style comments'
                 appears, when using '-pedantic'
 
-        * both versions checked with 'valgrind': "All heap blocks were freed --
-                no leaks are possible"
+        * both versions checked with 'valgrind': "ERROR SUMMARY: 0 errors from 0 contexts"
