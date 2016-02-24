@@ -19,4 +19,6 @@ This version of 'bizz_buzz' program is especially good because:
         * no warning generated using '-Wall', warnings only about 'C++ style comments'
                 appears, when using '-pedantic'
 
+        * program has constant adjustable memory footprint
+
         * both versions checked with 'valgrind': "ERROR SUMMARY: 0 errors from 0 contexts"
