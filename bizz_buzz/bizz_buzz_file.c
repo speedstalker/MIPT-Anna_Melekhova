@@ -205,6 +205,12 @@ int printf_substring (char* string, size_t idx_of_first_char, size_t length_of_s
 char saved_char = 0;
 int numb_of_chars_printed = 0;
 
+if ((string == NULL) || (idx_of_first_char < 0) || (length_of_substring < 0))
+        {
+        printf ("Arguments of %s is invalid!\n", __func__);
+        exit (EXIT_FAILURE);
+        }
+
 saved_char = string[idx_of_first_char + length_of_substring];
 string[idx_of_first_char + length_of_substring] = '\0';
 
@@ -220,6 +226,13 @@ int printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
                                         size_t numb_of_digits, size_t idx_of_first_digit)
 {
 int numb_of_read_bytes = 0, numb_of_printed_digits = 0;
+
+if ((fd_for_numb_on_edge < 0) || (buffer_for_numb_on_edge == NULL) ||
+                        (numb_of_digits < 0) || (idx_of_first_digit < 0))
+        {
+        printf ("Arguments of %s is invalid!\n", __func__);
+        exit (EXIT_FAILURE);
+        }
 
 if ((numb_of_printed_digits = printf ("%s", &buffer_for_numb_on_edge[idx_of_first_digit])) < 0)
         HANDLE_ERROR("first printf_on_edge");
