@@ -42,8 +42,8 @@
 #define SIZE_OF_BUF 1024
 
 
-int printf_substring (char* string, size_t idx_of_first_char, size_t length_of_substring);
-int printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
+static inline int _printf_substring (char* string, size_t idx_of_first_char, size_t length_of_substring);
+static inline int _printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
                                         size_t numb_of_digits, size_t idx_of_first_digit);
 
 
@@ -131,12 +131,12 @@ while (numb_of_read_bytes > 0)
 
                                         if (is_copied == 1) // the number is lying on edge of buffers
                                                 {
-                                                printf_numb_on_edge (fd_for_numb_on_edge, buffer_for_numb_on_edge,
+                                                _printf_numb_on_edge (fd_for_numb_on_edge, buffer_for_numb_on_edge,
                                                                                         numb_of_digits, idx_of_first_digit);
                                                 }
                                         else
-                                                if ((printf_substring (input_str, idx_of_first_digit, numb_of_digits)) < 0)
-                                                        HANDLE_ERROR("printf_substring");
+                                                if ((_printf_substring (input_str, idx_of_first_digit, numb_of_digits)) < 0)
+                                                        HANDLE_ERROR("_printf_substring");
                                         }
 
                                 numb_of_digits = 0;
@@ -184,9 +184,9 @@ while (numb_of_read_bytes > 0)
                                 HANDLE_ERROR("memcpy");
 
                         if ((cur_position = lseek (fd, 0, SEEK_CUR)) == (off_t)(-1))
-                                HANDLE_ERROR("lseek");
+                                HANDLE_ERROR("lseek seek for cur_position");
                         if (lseek (fd_for_numb_on_edge, cur_position, SEEK_SET) == (off_t)(-1))
-                                HANDLE_ERROR("lseek");
+                                HANDLE_ERROR("lseek set cur_position");
 
                         is_copied = 1;
                         }
@@ -200,7 +200,7 @@ return 0;
 }
 
 
-int printf_substring (char* string, size_t idx_of_first_char, size_t length_of_substring)
+static inline int _printf_substring (char* string, size_t idx_of_first_char, size_t length_of_substring)
 {
 char saved_char = 0;
 int numb_of_chars_printed = 0;
@@ -222,7 +222,7 @@ return numb_of_chars_printed;
 }
 
 
-int printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
+static inline int _printf_numb_on_edge (int fd_for_numb_on_edge, char* buffer_for_numb_on_edge,
                                         size_t numb_of_digits, size_t idx_of_first_digit)
 {
 int numb_of_read_bytes = 0, numb_of_printed_digits = 0;
@@ -242,7 +242,7 @@ while (numb_of_digits > 0)
         {
         if ((numb_of_read_bytes = read (fd_for_numb_on_edge,
                                 buffer_for_numb_on_edge, SIZE_OF_BUF - 1)) == -1)
-                HANDLE_ERROR("read");
+                HANDLE_ERROR("read _printf_numb_on_edge");
         buffer_for_numb_on_edge[numb_of_read_bytes] = '\0';
 
         if (numb_of_digits > numb_of_read_bytes)
@@ -254,8 +254,8 @@ while (numb_of_digits > 0)
                 }
         else
                 {
-                if ((numb_of_printed_digits = printf_substring (buffer_for_numb_on_edge, 0, numb_of_digits)) < 0)
-                        HANDLE_ERROR("printf_substring on edge");
+                if ((numb_of_printed_digits = _printf_substring (buffer_for_numb_on_edge, 0, numb_of_digits)) < 0)
+                        HANDLE_ERROR("_printf_substring on edge");
 
                 numb_of_digits -= numb_of_printed_digits;
                 }
