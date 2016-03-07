@@ -7,16 +7,24 @@
 *		AnnaM
 */
 
+// ERROR_FIX: some additional libraries are required
 #include <Windows.h>
 #include <stdio.h>
-// ERROR: maybe some additional libraries are required
+#include <string.h>     // for 'memset'
+#include <new>          // for 'new'
+#include <iostream>     // for 'cout'
+#include <limits.h>     // for 'CHAR_BIT'
+#include <stdint.h>     // for 'uintptr_t'
+#include <inttypes.h>   // for 'PRIxPTR'
 
 enum PAGE_COLOR
 {
-        // ERROR: begin with 0, add numb_of_elems
-	PG_COLOR_GREEN = 1, /* page may be released without high overhead */
-	PG_COLOR_YELLOW, /* nice to have */
-	PG_COLOR_RED	/* page is actively used */
+        // ERROR_FIX: begin with 0
+	PG_COLOR_GREEN,         /* page may be released without high overhead */
+	PG_COLOR_YELLOW,        /* nice to have */
+	PG_COLOR_RED,	        /* page is actively used */
+        PG_NUMB_OF_COLORS
+        // ERROR_FIX: added 'NUMB_OF_COLORS' for convenience
 };
 
 
@@ -25,22 +33,23 @@ enum PAGE_COLOR
  */
 union PageKey
 {
-        // ERROR: CHAR -> UINT
-        // ERROR: 24 -> SMTH (CHAR_BIT) in case of x64
+        // as I googled, for bit-field members of structure padding are off,
+        //      unless they cross word boundaries (here crossing not presented)
+        // http://www.catb.org/esr/structure-packing/#_bitfields
 	struct
 	{
-        CHAR	cColor: 8;
-	UINT	cAddr: 24;
-	};
-
-	UINT	uKey;
+        UINT        cColor: 8;      // ERROR_FIX: the standard suggests using 'integer' types for portability
+	uintptr_t   cAddr: (sizeof (uintptr_t) * CHAR_BIT - 8); // ERROR_FIX: for support of x64 addresses;
+	};                                                      //      'sizeof(char)' is always equal to 1,
+                                                                //      'uintptr_t' is capable of storing any pointer
+	uintptr_t   uKey;
 };
 
 
 /* Prepare from 2 chars the key of the same configuration as in PageKey */
-// ERROR: parenthesis around <<
-// ERROR: maybe cast ptr to smth
-#define CALC_PAGE_KEY( Addr, Color )	(  (Color) + (Addr) << 8 )
+// ERROR_FIX: parenthesis around <<
+// ERROR_FIX: cast 'Addr' ptr to 'uintptr_t' to suppress an error
+#define CALC_PAGE_KEY( Addr, Color )	( (Color) + ((uintptr_t)(Addr) << 8) )
 
 
 /**
@@ -48,88 +57,106 @@ union PageKey
  */
 struct PageDesc
 {
-// ERROR: 'union' and 'struct' needs to be added || maybe not, as this is C++
-// ERROR: uKey has a member uKey
-	PageKey			uKey;
+// as this is C++, not C, there is no need for 'union' and 'struct' keywords before PageKey, PageDesc, etc.
+// ERROR_FIX: uKey has a member uKey, renamed to 'pKey' to avoid ambiguity
+	PageKey			pKey;
 
 	/* list support */
 	PageDesc		*next, *prev;
 };
 
-// ERROR: do while wrapping
-// ERROR: should be uKey.uKey
-#define PAGE_INIT( Desc, Addr, Color )              \
-    {                                               \
-        (Desc).uKey = CALC_PAGE_KEY( Addr, Color ); \
-        (Desc).next = (Desc).prev = NULL;           \
-    }
+// ERROR_FIX: 'do {...} while (0)' wrapping
+// ERROR_FIX: should be pKey.uKey
+#define PAGE_INIT( Desc, Addr, Color )                          \
+        do                                                      \
+        {                                                       \
+                (Desc).pKey.uKey = CALC_PAGE_KEY( Addr, Color );\
+                (Desc).next      = (Desc).prev = NULL;          \
+        }                                                       \
+        while (0)
 
 
 /* storage for pages of all colors */
-// ERROR: 3 -> total_numb in enum
-// ERROR: add 'struct'
-static PageDesc* PageStrg[ 3 ];
+// ERROR_FIX: changed 3 -> PG_NUMB_OF_COLORS
+static PageDesc* PageStrg[ PG_NUMB_OF_COLORS ];
 
-// ERROR: do we actually need this function?
 void PageStrgInit()
 {
-// ERROR: additional library for memset required
-// ERROR: no '&' required
-	memset( PageStrg, 0, sizeof(&PageStrg) );
+// as 'PageStrg' declared as const size array [],
+//      sizeof(PageStrg) is equal to sum of sizes of all it's members
+// ERROR_FIX: no '&' required
+	memset( PageStrg, 0, sizeof(PageStrg) );
 }
 
-// ERROR: struct
-// ERROR: color not 'char' but 'enum'
-PageDesc* PageFind( void* ptr, char color )
-// ERROR: check for color boundaries
+// ERROR_FIX: color type not 'char' but 'enum'
+PageDesc* PageFind( void* ptr, PAGE_COLOR color )
+// ERROR_FIX: C++ ensures compile time checking of enum parameters of function
+//                   but for runtime checking let's do it manually
 {
-        // ERROR: struct
-	for( PageDesc* Pg = PageStrg[color]; Pg; Pg = Pg->next );
-        // ERROR: Pg always == NULL after this 'for' || no, just delete ';' after 'for'
-        // ERROR: uKey.uKey
-        // ERROR: CALC_PAGE_KEY returns x86 value, correct the macro
-        if( Pg->uKey == CALC_PAGE_KEY(ptr,color) )
-           return Pg;
+        if ((color < PG_COLOR_GREEN) || (PG_NUMB_OF_COLORS <= color))
+                return NULL;    // MAYBE_ERROR: maybe not NULL but 'nullptr'?
+                                // as everywhere in file NULL is used, let it be so
+
+        // ERROR_FIX: deleted ';' after 'for'
+	for( PageDesc* Pg = PageStrg[color]; Pg; Pg = Pg->next )
+                // ERROR_FIX: should be pKey.uKey
+                if( Pg->pKey.uKey == CALC_PAGE_KEY(ptr,color) )
+                // ERROR_FIX: CALC_PAGE_KEY macro fixed for x64 addresses
+                        return Pg;
     return NULL;
 }
 
-// ERROR: struct
+// MAYBE_ERROR: no matter error happened or function succeeded, NULL is returned
 PageDesc* PageReclaim( UINT cnt )
 {
-        // ERROR: not 'UINT' but 'enum'
-	UINT color = 0;
-        // ERROR: init
-	PageDesc* Pg;
+        // ERROR_FIX: not 'UINT' but 'enum', and not '0' but PG_COLOR_GREEN
+	PAGE_COLOR color = PG_COLOR_GREEN;
+        // ERROR_FIX: init Pg and check it's value
+	PageDesc* Pg = PageStrg[color];
+        if (Pg == NULL) return NULL;
+
 	while( cnt )
 	{
+                // ERROR_FIX: should be 'Pg' (or maybe even '&Pg') rather than 'PageStrg[ color ]'
+		PageRemove(Pg);
+                // ERROR_FIX: changed order of operations: first remove, then ->next, then check
 		Pg = Pg->next;
-                // ERROR: remove (Pg) ?
-                // ERROR: first remove, then ->next
-		PageRemove( PageStrg[ color ] );
 		cnt--;
 		if( Pg == NULL )
 		{
-                        // ERROR: check boundaries
-			color++;
-			Pg = PageStrg[ color ];
+                        // ERROR_FIX: check boundaries
+			if ((color + 1) < PG_NUMB_OF_COLORS)
+                        {
+                                color++;
+                                Pg = PageStrg[ color ];
+                        }
+                        else
+                                return Pg;
 		}
 	}
-        // ERROR: return statement
+        // ERROR_FIX: 'return' statement added
+        return Pg;
 }
 
-// ERROR: not UINT but enum
-PageDesc* PageInit( void* ptr, UINT color )
-// ERROR: check for color boundaries
+// ERROR_FIX: not 'UINT' but 'enum'
+PageDesc* PageInit( void* ptr, PAGE_COLOR color )
+// ERROR_FIX: check for 'color' boundaries
 {
-    // ERROR: additional library for 'new'
-    PageDesc* pg = new PageDesc;
-    // ERROR: throws exception
-    if( pg )
-        // ERROR: no & needed
-        PAGE_INIT(&pg, ptr, color);
-    else
-        printf("Allocation has failed\n");
-    return pg;
+        if ((color < PG_COLOR_GREEN) || (PG_NUMB_OF_COLORS <= color))
+                return NULL;
+
+        // ERROR_FIX: 'new' throws exception
+        try
+        {
+                PageDesc* pg = new PageDesc;
+                PAGE_INIT(*pg, ptr, color);      // ERROR_FIX: '*' instead of '&' needed
+                return pg;
+        }
+        catch (std::bad_alloc& ba)
+        {
+                std::cerr << "bad_alloc caught: " << ba.what() << '\n';
+                return NULL;
+        }
 }
 
 /**
@@ -137,33 +164,35 @@ PageDesc* PageInit( void* ptr, UINT color )
  */
 void PageDump()
 {
-        // ERROR: not UINT but enum
-	UINT color = 0;
+        // ERROR_FIX: not 'UINT' but 'enum', and not '0' but PG_COLOR_GREEN
+	PAGE_COLOR color = PG_COLOR_GREEN;
 	#define PG_COLOR_NAME(clr) #clr
 	char* PgColorName[] =
 	{
-                // ERROR: inverted order
-		PG_COLOR_NAME(PG_COLOR_RED),
+                // ERROR_FIX: corrected order of colors
+		PG_COLOR_NAME(PG_COLOR_GREEN),
 		PG_COLOR_NAME(PG_COLOR_YELLOW),
-		PG_COLOR_NAME(PG_COLOR_GREEN)
+		PG_COLOR_NAME(PG_COLOR_RED)
 	};
 
-	while( color <= PG_COLOR_RED )
+        // ERROR_FIX: as there is PG_NUMB_OF_COLORS exist, let's use it
+	while( color < PG_NUMB_OF_COLORS )
 	{
-                // ERROR: wrong order of 'printf' arguments
-		printf("PgStrg[(%s) %u] ********** \n", color, PgColorName[color] );
-                // ERROR: prefix incrementation
-		for( PageDesc* Pg = PageStrg[++color]; Pg != NULL; Pg = Pg->next )
+                // ERROR_FIX: corrected wrong order of 'printf' arguments
+		printf("PgStrg[(%s) %u] ********** \n", PgColorName[color], color );
+                // ERROR_FIX: changed prefix to postfix incrementation
+		for( PageDesc* Pg = PageStrg[color++]; Pg != NULL; Pg = Pg->next )
 		{
-                        // ERROR: ==
-                        // ERROR: uKey.uAddr
-                        // ERROR: uAddr -> cAddr
-			if( Pg->uAddr = NULL )
+                        // ERROR_FIX: == instead of =
+                        // ERROR_FIX: pKey.uAddr
+                        // ERROR_FIX: uAddr -> cAddr
+                        // ERROR_FIX: .cAddr needs to be casted to ptr or compared to 0, not NULL
+			if( Pg->pKey.cAddr == 0 )
 				continue;
 
-                        // ERROR: uKey.uKey & cAddr
-                        // ERROR: maybe (void*)
-			printf("Pg :Key = 0x%x, addr %p\n", Pg->uKey, Pg->uAddr );
+                        // ERROR_FIX: pKey.uKey & pKey.cAddr
+                        // ERROR_FIX: because of using 'uintptr_t', in 'printf' we need to use 'PRIxPTR'
+			printf("Pg :Key = 0x%" PRIxPTR ", addr %" PRIxPTR "\n", Pg->pKey.uKey, Pg->pKey.cAddr );
 		}
 	}
 	#undef PG_COLOR_NAME
