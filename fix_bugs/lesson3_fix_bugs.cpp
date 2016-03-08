@@ -49,7 +49,7 @@ union PageKey
 /* Prepare from 2 chars the key of the same configuration as in PageKey */
 // ERROR_FIX: parenthesis around <<
 // ERROR_FIX: cast 'Addr' ptr to 'uintptr_t' to suppress an error
-#define CALC_PAGE_KEY( Addr, Color )	( (Color) + ((uintptr_t)(Addr) << 8) )
+#define CALC_PAGE_KEY( Addr, Color )	( (uintptr_t)(Color) + ((uintptr_t)(Addr) << 8) )
 
 
 /**
@@ -101,7 +101,7 @@ PageDesc* PageFind( void* ptr, PAGE_COLOR color )
 	for( PageDesc* Pg = PageStrg[color]; Pg; Pg = Pg->next )
                 // ERROR_FIX: should be pKey.uKey
                 if( Pg->pKey.uKey == CALC_PAGE_KEY(ptr,color) )
-                // ERROR_FIX: CALC_PAGE_KEY macro fixed for x64 addresses
+                // ERROR_FIX: 'CALC_PAGE_KEY' macro fixed for x64 addresses
                         return Pg;
     return NULL;
 }
@@ -179,7 +179,7 @@ void PageDump()
 	while( color < PG_NUMB_OF_COLORS )
 	{
                 // ERROR_FIX: corrected wrong order of 'printf' arguments
-		printf("PgStrg[(%s) %u] ********** \n", PgColorName[color], color );
+		printf("PgStrg[(%s) %u] ********** \n", PgColorName[color], (UINT)color );
                 // ERROR_FIX: changed prefix to postfix incrementation
 		for( PageDesc* Pg = PageStrg[color++]; Pg != NULL; Pg = Pg->next )
 		{
@@ -192,7 +192,7 @@ void PageDump()
 
                         // ERROR_FIX: pKey.uKey & pKey.cAddr
                         // ERROR_FIX: because of using 'uintptr_t', in 'printf' we need to use 'PRIxPTR'
-			printf("Pg :Key = 0x%" PRIxPTR ", addr %" PRIxPTR "\n", Pg->pKey.uKey, Pg->pKey.cAddr );
+			printf("Pg :Key = 0x%" PRIxPTR ", addr %" PRIxPTR "\n", Pg->pKey.uKey, (uintptr_t)(Pg->pKey.cAddr) );
 		}
 	}
 	#undef PG_COLOR_NAME
